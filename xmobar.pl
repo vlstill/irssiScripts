@@ -33,6 +33,7 @@ my %levelcolor = ( 1 => "#46a4ff",
 my %winminlevel = ( "root" => 4,
                     "&bitlbee" => 4,
                     "#nixos" => 3,
+                    "#darcs" => 2,
                   );
 
 POSIX::mkfifo( $pipe, $pipemode ) unless ( -p $pipe );
