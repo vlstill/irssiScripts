@@ -12,7 +12,7 @@ use vars qw($VERSION %IRSSI);
 use IO::Handle;
 use POSIX;
 
-$VERSION = "0.01";
+$VERSION = "0.02";
 %IRSSI = (
     authors    => 'Vladimír Štill',
     contact     => 'xstill@fi.muni.cz',
@@ -22,24 +22,47 @@ $VERSION = "0.01";
     url         => 'https://github.com/vlstill/irssiScripts/blob/master/xmobar.pl',
 );
 
-my $pipe = "/tmp/cache/irssi2xmobar";
 my $pipemode = 0600;
 my $maxlength = 32;
-my $minlevel = 1;
-my %levelcolor = ( 1 => "#46a4ff",
-                   3 => "#ff6565",
-                 );
+
+Irssi::settings_add_str( "xmobar", "xmobar_pipe", "/tmp/irssi2xmobar" );
+Irssi::settings_add_str( "xmobar", "xmobar_level_1_color", "" );
+Irssi::settings_add_str( "xmobar", "xmobar_level_2_color", "" );
+Irssi::settings_add_str( "xmobar", "xmobar_level_3_color", "" );
+Irssi::settings_add_str( "xmobar", "xmobar_minlevels", "" );
+
 # use 4 to disable all notifications from given window
-my %winminlevel = ( "root" => 4,
-                    "&bitlbee" => 4,
-                    "#nixos" => 3,
-                    "#darcs" => 2,
-                    "#fi.muni.cz" => 2,
-                  );
+my %winminlevel;
+#= ( "root" => 4,
+#                    "&bitlbee" => 4,
+#                    "#nixos" => 3,
+#                    "#darcs" => 2,
+#                    "#fi.muni.cz" => 2,
+#                  );
+
+sub savelevels() {
+    my @levels = ();
+    for my $k ( keys %winminlevel ) {
+        push( @levels, "$k=$winminlevel{$k}" );
+    }
+    Irssi::settings_set_str( "xmobar_minlevels", join( ":", @levels ) );
+}
+
+sub loadlevels() {
+    my @levels = split( /:/, Irssi::settings_get_str( "xmobar_minlevels" ) );
+    %winminlevel = ();
+    for my $level ( @levels ) {
+        my ( $k, $v ) = split( /=/, $level );
+        $winminlevel{ $k } = $v;
+    }
+}
+
+loadlevels();
 
 sub printPipe($) {
     my ( $msg ) = @_;
 
+    my $pipe = Irssi::settings_get_str( "xmobar_pipe" );
     POSIX::mkfifo( $pipe, $pipemode ) unless ( -p $pipe );
     open( my $handle, ">", $pipe ) or die "Pipe open error";
 #    if ( length( $msg ) > $maxlength ) {
@@ -52,15 +75,17 @@ sub printPipe($) {
 
 sub colorBegin($) {
     my ( $level ) = @_;
-    if ( exists( $levelcolor{ $level } ) ) {
-        return "<fc=$levelcolor{ $level }>";
+    my $color = Irssi::settings_get_str( "xmobar_level_${level}_color" );
+    if ( $color ne "" ) {
+        return "<fc=$color>";
     }
     return "";
 }
 
 sub colorEnd($) {
     my ( $level ) = @_;
-    if ( exists( $levelcolor{ $level } ) ) {
+    my $color = Irssi::settings_get_str( "xmobar_level_${level}_color" );
+    if ( $color ne "" ) {
         return "</fc>";
     }
     return "";
@@ -90,6 +115,45 @@ sub testing {
 }
 
 Irssi::command_bind( "test", \&testing );
+
+sub setting {
+    my ( $_data, $server, $witem ) = @_;
+
+    my $wprint = sub {
+        if ( exists( $witem->{type} ) ) {
+            $witem->print( @_ );
+        } else {
+            print @_;
+        }
+    };
+
+    my @data = split( /\s+/, $_data );
+    $wprint->( "data = (". scalar @data . ")'@data'" );
+    my $name = $$witem{name};
+    if ( @data > 0 && $data[ 0 ] eq "minlevel" ) {
+        if ( @data > 1 && $data[ 1 ] =~ /[0-9]+/ ) {
+            my $level = $data[ 1 ] + 0;
+            if ( $level < 1 || $level > 4 ) {
+                $wprint->( "invalid minimal level '$data[ 1 ]' (expected 1-4)" );
+                return;
+            }
+            $winminlevel{ $name } = $level;
+            $wprint->( "xmobar.minlevel.$name = $level" );
+            savelevels();
+        } else {
+            my $level = 1;
+            $level = $winminlevel{ $name } if exists( $winminlevel{ $name } );
+            $wprint->( "xmobar.minlevel.$name = $level" );
+        }
+    } else {
+        $wprint->( "xmobar binding configuration" );
+        for my $k ( keys %winminlevel ) {
+            $wprint->( "xmobar.minlevel.$k = $winminlevel{ $k }" );
+        }
+    }
+}
+
+Irssi::command_bind( "xmobar", \&setting );
 
 sub window_activity {
 
