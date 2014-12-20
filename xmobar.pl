@@ -120,7 +120,6 @@ sub setting {
     };
 
     my @data = split( /\s+/, $_data );
-    $wprint->( "data = (". scalar @data . ")'@data'" );
     my $name = $$witem{name};
     if ( @data > 0 && $data[ 0 ] eq "minlevel" ) {
         if ( @data > 1 && $data[ 1 ] =~ /[0-9]+/ ) {
