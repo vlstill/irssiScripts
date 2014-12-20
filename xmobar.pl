@@ -123,7 +123,11 @@ sub setting {
     my $name = $$witem{name};
     if ( @data == 0 ) {
         $wprint->( "[xmobar binding configuration]" );
-        $wprint->( "use '/xmobar help' for help" );
+        $wprint->( "use '/xmobar help' for help\n" );
+        for ( my $i = 1; $i <= 3; $i++ ) {
+            $wprint->( "xmobar.level_${i}_color = " . Irssi::settings_get_str( "xmobar_level_${i}_color" ) );
+        }
+        $wprint->( "xmobar.pipe = " . Irssi::settings_get_str( "xmobar_pipe" ) );
         for my $k ( keys %winminlevel ) {
             $wprint->( "xmobar.minlevel.$k = $winminlevel{ $k }" );
         }
@@ -144,6 +148,12 @@ sub setting {
             $level = $winminlevel{ $name } if exists( $winminlevel{ $name } );
             $wprint->( "xmobar.minlevel.$name = $level" );
         }
+    } elsif ( $data[ 0 ] =~ "level_[1-3]_color" ) {
+        Irssi::settings_set_str( "xmobar_$data[ 0 ]", $data[ 1 ] ) if ( @data > 1 );
+        $wprint->( $data[ 0 ] . " = " . Irssi::settings_get_str( "xmobar_$data[ 0 ]" ) );
+    } elsif ( $data[ 0 ] eq "pipe" ) {
+        Irssi::settings_set_str( "xmobar_pipe", $data[ 1 ] ) if ( @data > 1 );
+        $wprint->( "xmobar.pipe = " . Irssi::settings_get_str( "xmobar_pipe" ) );
     } elsif ( $data[ 0 ] eq "help" ) {
         $wprint->( "/xmobar usage:" );
         $wprint->( "/xmobar                 show all settings" );
