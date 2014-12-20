@@ -18,8 +18,8 @@ $VERSION = "0.01";
     contact     => 'xstill@fi.muni.cz',
     name        => 'xmobar.pl',
     description => 'simple xmobar binding (using pipe reader)',
-    license     => 'BSD',
-    url         => 'TODO',
+    license     => 'BSD2',
+    url         => 'https://github.com/vlstill/irssiScripts/blob/master/xmobar.pl',
 );
 
 my $pipe = "/tmp/cache/irssi2xmobar";
@@ -34,18 +34,20 @@ my %winminlevel = ( "root" => 4,
                     "&bitlbee" => 4,
                     "#nixos" => 3,
                     "#darcs" => 2,
+                    "#fi.muni.cz" => 2,
                   );
-
-POSIX::mkfifo( $pipe, $pipemode ) unless ( -p $pipe );
-open( my $handle, ">", $pipe ) or die "Pipe open error";
 
 sub printPipe($) {
     my ( $msg ) = @_;
+
+    POSIX::mkfifo( $pipe, $pipemode ) unless ( -p $pipe );
+    open( my $handle, ">", $pipe ) or die "Pipe open error";
 #    if ( length( $msg ) > $maxlength ) {
 #        $msg =~ s/^(.{0,$maxlength})\b.*$/$1…/s;
 #    }        
     print $handle "$msg\n";
     $handle->autoflush;
+    close( $handle );
 }
 
 sub colorBegin($) {
@@ -66,8 +68,6 @@ sub colorEnd($) {
 
 printPipe( "" );
 window_activity();
-
-# print $handle "initialized\n";
 
 sub testing {
     my ($data, $server, $witem) = @_;
@@ -91,21 +91,6 @@ sub testing {
 
 Irssi::command_bind( "test", \&testing );
 
-sub event_privmsg {
-    # $data = "nick/#channel :text"
-    my ($server, $data, $nick, $address) = @_;
-    # my ($target, $text) = split(/ :/, $data, 2);
-      
-    printPipe( "$nick" );
-}
-
-sub window_highlight {
-    my ( $window ) = @_;
-    return unless $window;
-
-    printPipe( "highlight" );
-}
-
 sub window_activity {
 
     my @windows = Irssi::windows();
@@ -128,7 +113,5 @@ sub window_activity {
     printPipe( join( ", ", @msgs ) );
 }
 
-# Irssi::signal_add_last( "event privmsg", \&event_privmsg );
-# Irssi::signal_add_last( "window highlight", \&window_highlight );
 Irssi::signal_add_last( "window activity", \&window_activity );
 
