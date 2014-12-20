@@ -33,12 +33,6 @@ Irssi::settings_add_str( "xmobar", "xmobar_minlevels", "" );
 
 # use 4 to disable all notifications from given window
 my %winminlevel;
-#= ( "root" => 4,
-#                    "&bitlbee" => 4,
-#                    "#nixos" => 3,
-#                    "#darcs" => 2,
-#                    "#fi.muni.cz" => 2,
-#                  );
 
 sub savelevels() {
     my @levels = ();
@@ -65,9 +59,7 @@ sub printPipe($) {
     my $pipe = Irssi::settings_get_str( "xmobar_pipe" );
     POSIX::mkfifo( $pipe, $pipemode ) unless ( -p $pipe );
     open( my $handle, ">", $pipe ) or die "Pipe open error";
-#    if ( length( $msg ) > $maxlength ) {
-#        $msg =~ s/^(.{0,$maxlength})\b.*$/$1…/s;
-#    }        
+
     print $handle "$msg\n";
     $handle->autoflush;
     close( $handle );
