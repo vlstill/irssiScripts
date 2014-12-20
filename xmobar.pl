@@ -121,7 +121,15 @@ sub setting {
 
     my @data = split( /\s+/, $_data );
     my $name = $$witem{name};
-    if ( @data > 0 && $data[ 0 ] eq "minlevel" ) {
+    if ( @data == 0 ) {
+        $wprint->( "[xmobar binding configuration]" );
+        $wprint->( "use '/xmobar help' for help" );
+        for my $k ( keys %winminlevel ) {
+            $wprint->( "xmobar.minlevel.$k = $winminlevel{ $k }" );
+        }
+        return;
+    }
+    if ( $data[ 0 ] eq "minlevel" ) {
         if ( @data > 1 && $data[ 1 ] =~ /[0-9]+/ ) {
             my $level = $data[ 1 ] + 0;
             if ( $level < 1 || $level > 4 ) {
@@ -136,11 +144,15 @@ sub setting {
             $level = $winminlevel{ $name } if exists( $winminlevel{ $name } );
             $wprint->( "xmobar.minlevel.$name = $level" );
         }
-    } else {
-        $wprint->( "xmobar binding configuration" );
-        for my $k ( keys %winminlevel ) {
-            $wprint->( "xmobar.minlevel.$k = $winminlevel{ $k }" );
-        }
+    } elsif ( $data[ 0 ] eq "help" ) {
+        $wprint->( "/xmobar usage:" );
+        $wprint->( "/xmobar                 show all settings" );
+        $wprint->( "/xmobar minlevel [N]    get/set minimal notification level for current window\n"
+                 . "                        N = 1  all including status changes\n"
+                 . "                        N = 2  all messages\n"
+                 . "                        N = 3  highlighted messages\n"
+                 . "                        N = 4  disable notification" );
+
     }
 }
 
