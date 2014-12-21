@@ -30,11 +30,13 @@ Irssi::settings_add_str( "xmobar", "xmobar_level_2_color", "" );
 Irssi::settings_add_str( "xmobar", "xmobar_level_3_color", "" );
 Irssi::settings_add_str( "xmobar", "xmobar_minlevels", "" );
 Irssi::settings_add_int( "xmobar", "xmobar_act_timeout", 60 );
+Irssi::settings_add_str( "xmobar", "xmobar_nick_watches", "" );
 
 # use 4 to disable all notifications from given window
 my %winminlevel;
 my %actbuffer;
 my $msgbuf;
+my @nicktempwatches;
 
 sub savelevels() {
     my @levels = ();
@@ -84,6 +86,18 @@ sub flushPipe() {
 sub actPush($) {
     my ( $act ) = @_;
     $actbuffer{ $act } = time;
+}
+
+sub watched($) {
+    my ( $nick ) = @_;
+    my @nickwatches = split( / /, Irssi::settings_get_str( "xmobar_nick_watches" ) );
+    for my $n ( @nickwatches ) {
+        return 1 if ( $n eq $nick );
+    }
+    for my $n ( @nicktempwatches ) {
+        return 1 if ( $n eq $nick );
+    }
+    return 0;
 }
 
 sub colorBegin($) {
@@ -174,6 +188,55 @@ sub setting {
     } elsif ( $data[ 0 ] eq "pipe" ) {
         Irssi::settings_set_str( "xmobar_pipe", $data[ 1 ] ) if ( @data > 1 );
         $wprint->( "xmobar.pipe = " . Irssi::settings_get_str( "xmobar_pipe" ) );
+    } elsif ( $data[ 0 ] eq "watch" ) {
+        my @nickwatches = split( / /, Irssi::settings_get_str( "xmobar_nick_watches" ) );
+        my $printall = sub {
+            $wprint->( "[xmobar activity watches]\n"
+                     . "permanent: @nickwatches\n"
+                     . "temporary: @nicktempwatches" );
+        };
+        if ( @data > 2 ) {
+            my @nicks = @data[2 .. $#data];
+            if ( $data[ 1 ] eq "add" ) {
+                push( @nickwatches, @nicks );
+                Irssi::settings_set_str( "xmobar_nick_watches", join( " ", @nickwatches ) );
+                $printall->();
+            } elsif ( $data[ 1 ] eq "tempadd" ) {
+                push( @nicktempwatches, @nicks );
+                $printall->();
+            } elsif ( $data[ 1 ] eq "drop" ) {
+                print "not implmented";
+            } elsif ( $data[ 1 ] eq "timeout" ) {
+                my $tmo = $data[ 2 ] + 0;
+                if ( $tmo < 0 ) {
+                    $wprint->( "Invalid timout (must be >= 0)" );
+                    return;
+                }
+                Irssi::settings_set_int( "xmobar_act_timeout", $tmo );
+                $wprint->( "xmobar.watch.timeout = $tmo" );
+            }
+        } elsif ( @data == 2 && $data[ 1 ] eq "cleartemp" ) {
+            @nicktempwatches = ();
+            $wprint->( "temporary watches cleared" );
+        } elsif ( @data == 2 && $data[ 1 ] eq "clear" ) {
+            @nicktempwatches = ();
+            Irssi::settings_set_str( "xmobar_nick_watches", "" );
+            $wprint->( "watches cleared" );
+        } elsif ( @data == 2 && $data[ 1 ] eq "timeout" ) {
+            $wprint->( "xmobar.watch.timeout = "
+                   . Irssi::settings_get_int( "xmobar_act_timeout" ) );
+        } elsif ( @data == 2 && $data[ 1 ] eq "help" ) {
+            $wprint->( "/xmobar watch [command]    where command can be one of:\n"
+                     . "(nothing)            list watched nicks\n"
+                     . "add NICKS...         add permanent watches for listed nicks (space separated)\n"
+                     . "tempadd NICKS...     add temporary watches for listed nicks\n"
+                     . "drop NICKS...        do not watch those nicks any more\n"
+                     . "clear                clear all watches\n"
+                     . "cleartemp            clear temporary watches\n"
+                     . "timeout [SECONDS]    get/set timeout for nick activity display" );
+        } else {
+            $printall->();
+        }
     } elsif ( $data[ 0 ] eq "help" ) {
         $wprint->( "/xmobar usage:" );
         $wprint->( "/xmobar                 show all settings" );
@@ -182,7 +245,7 @@ sub setting {
                  . "                        N = 2  all messages\n"
                  . "                        N = 3  highlighted messages\n"
                  . "                        N = 4  disable notification" );
-
+        $wprint->( "/xmobar watches help    see help for nick watches" );
     }
 }
 
@@ -215,19 +278,19 @@ Irssi::signal_add_last( "window activity", \&window_activity );
 
 sub msg_join {
     my ( $server, $channel, $nick, $address ) = @_;
-    actPush( "+$nick" );
+    actPush( "+$nick" ) if ( watched( $nick ) );
     flushPipe();
 }
 
 sub msg_part {
     my ( $server, $channel, $nick, $address, $reason ) = @_;
-    actPush( "-$nick" );
+    actPush( "-$nick" ) if ( watched( $nick ) );
     flushPipe();
 }
 
 sub msg_quit {
     my ( $server, $nick, $address, $reason ) = @_;
-    actPush( "-$nick" );
+    actPush( "-$nick" ) if ( watched( $nick ) );
     flushPipe();
 }
 
