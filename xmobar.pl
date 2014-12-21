@@ -66,8 +66,8 @@ sub flushPipe() {
     my $timeout = Irssi::settings_get_int( "xmobar_act_timeout" );
     my $tm = time - $timeout;
     for my $k ( keys %actbuffer ) {
-        if ( $actbuffer{ $k } > $tm ) {
-            push( @act, $k );
+        if ( $actbuffer{ $k }->{ time } > $tm ) {
+            push( @act, $actbuffer{ $k }->{ sign } . $k );
         } else {
             delete( $actbuffer{ $k } );
         }
@@ -83,9 +83,9 @@ sub flushPipe() {
     close( $handle );
 }
 
-sub actPush($) {
-    my ( $act ) = @_;
-    $actbuffer{ $act } = time;
+sub actPush($$) {
+    my ( $sign, $act ) = @_;
+    $actbuffer{ $act } = { 'time' => time, 'sign' => $sign };
 }
 
 sub watched($) {
@@ -299,19 +299,19 @@ Irssi::signal_add_last( "window activity", \&window_activity );
 
 sub msg_join {
     my ( $server, $channel, $nick, $address ) = @_;
-    actPush( "+$nick" ) if ( watched( $nick ) );
+    actPush( "+", $nick ) if ( watched( $nick ) );
     flushPipe();
 }
 
 sub msg_part {
     my ( $server, $channel, $nick, $address, $reason ) = @_;
-    actPush( "-$nick" ) if ( watched( $nick ) );
+    actPush( "-", $nick ) if ( watched( $nick ) );
     flushPipe();
 }
 
 sub msg_quit {
     my ( $server, $nick, $address, $reason ) = @_;
-    actPush( "-$nick" ) if ( watched( $nick ) );
+    actPush( "-", $nick ) if ( watched( $nick ) );
     flushPipe();
 }
 
