@@ -23,16 +23,18 @@ $VERSION = "0.02";
 );
 
 my $pipemode = 0600;
-my $maxlength = 32;
 
 Irssi::settings_add_str( "xmobar", "xmobar_pipe", "/tmp/irssi2xmobar" );
 Irssi::settings_add_str( "xmobar", "xmobar_level_1_color", "" );
 Irssi::settings_add_str( "xmobar", "xmobar_level_2_color", "" );
 Irssi::settings_add_str( "xmobar", "xmobar_level_3_color", "" );
 Irssi::settings_add_str( "xmobar", "xmobar_minlevels", "" );
+Irssi::settings_add_int( "xmobar", "xmobar_act_timeout", 60 );
 
 # use 4 to disable all notifications from given window
 my %winminlevel;
+my %actbuffer;
+my $msgbuf;
 
 sub savelevels() {
     my @levels = ();
@@ -53,16 +55,35 @@ sub loadlevels() {
 
 loadlevels();
 
-sub printPipe($) {
-    my ( $msg ) = @_;
-
+sub flushPipe() {
     my $pipe = Irssi::settings_get_str( "xmobar_pipe" );
     POSIX::mkfifo( $pipe, $pipemode ) unless ( -p $pipe );
     open( my $handle, ">", $pipe ) or die "Pipe open error";
 
+    my @act = ();
+    my $timeout = Irssi::settings_get_int( "xmobar_act_timeout" );
+    my $tm = time - $timeout;
+    for my $k ( keys %actbuffer ) {
+        if ( $actbuffer{ $k } > $tm ) {
+            push( @act, $k );
+        } else {
+            delete( $actbuffer{ $k } );
+        }
+    }
+
+    my $msg = "$msgbuf " . join( " ", @act );
+    $msg =~ s/^\s+//;
+    $msg =~ s/\s+$//;
+
     print $handle "$msg\n";
     $handle->autoflush;
+    Irssi::timeout_add_once( 1000 * $timeout, \&flushPipe, 0 ) if ( @act > 0 );
     close( $handle );
+}
+
+sub actPush($) {
+    my ( $act ) = @_;
+    $actbuffer{ $act } = time;
 }
 
 sub colorBegin($) {
@@ -83,7 +104,6 @@ sub colorEnd($) {
     return "";
 }
 
-printPipe( "" );
 window_activity();
 
 sub testing {
@@ -187,8 +207,31 @@ sub window_activity {
         }
     }
 
-    printPipe( join( ", ", @msgs ) );
+    $msgbuf = join( ", ", @msgs );
+    flushPipe();
 }
 
 Irssi::signal_add_last( "window activity", \&window_activity );
+
+sub msg_join {
+    my ( $server, $channel, $nick, $address ) = @_;
+    actPush( "+$nick" );
+    flushPipe();
+}
+
+sub msg_part {
+    my ( $server, $channel, $nick, $address, $reason ) = @_;
+    actPush( "-$nick" );
+    flushPipe();
+}
+
+sub msg_quit {
+    my ( $server, $nick, $address, $reason ) = @_;
+    actPush( "-$nick" );
+    flushPipe();
+}
+
+Irssi::signal_add_last( "message join", \&msg_join );
+Irssi::signal_add_last( "message part", \&msg_part );
+Irssi::signal_add_last( "message quit", \&msg_quit );
 
