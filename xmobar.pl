@@ -205,7 +205,28 @@ sub setting {
                 push( @nicktempwatches, @nicks );
                 $printall->();
             } elsif ( $data[ 1 ] eq "drop" ) {
-                print "not implmented";
+                my @newnw = ();
+                for my $n ( @nickwatches ) {
+                    my $drop = 0;
+                    for my $nd ( @nicks ) {
+                        $drop = 1 if ( $n eq $nd );
+                    }
+                    push( @newnw, $n ) if ( not $drop );
+                }
+                @nickwatches = @newnw;
+                Irssi::settings_set_str( "xmobar_nick_watches", join( " ", @newnw ) );
+
+                my @newtnw = ();
+                for my $n ( @nicktempwatches ) {
+                    my $drop = 0;
+                    for my $nd ( @nicks ) {
+                        $drop = 1 if ( $n eq $nd );
+                    }
+                    push( @newtnw, $n ) if ( not $drop );
+                }
+                @nicktempwatches = @newtnw;
+
+                $printall->();
             } elsif ( $data[ 1 ] eq "timeout" ) {
                 my $tmo = $data[ 2 ] + 0;
                 if ( $tmo < 0 ) {
