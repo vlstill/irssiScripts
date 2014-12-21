@@ -6,8 +6,7 @@ Some useful scripts I created for use with great IRC client `irssi`.
 ## xmobar.pl
 Binding for `xmobar`. It uses pipe reader on `xmobar` side:
 
-    Config
-    { ...
+    Config { ...
     , commands = [ Run PipeReader "/tmp/irssi2xmobar" "irssi" ]
     }
 
